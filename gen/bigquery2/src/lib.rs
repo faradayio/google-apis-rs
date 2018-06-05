@@ -436,7 +436,7 @@ impl Part for TableDataInsertAllRequestRows {}
 pub struct JobStatistics4 {
     /// [Output-only] Number of files per destination URI or URI pattern specified in the extract configuration. These values will be in the same order as the URIs specified in the 'destinationUris' field.
     #[serde(rename="destinationUriFileCounts")]
-    pub destination_uri_file_counts: Option<Vec<i64>>,
+    pub destination_uri_file_counts: Option<Vec<String>>,
 }
 
 impl Part for JobStatistics4 {}
