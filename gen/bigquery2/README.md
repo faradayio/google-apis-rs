@@ -25,10 +25,6 @@ Handle the following *Resources* with ease from the central [hub](https://docs.r
  * [*delete*](https://docs.rs/google-bigquery2/1.0.7+20171202/google_bigquery2/struct.TableDeleteCall.html), [*get*](https://docs.rs/google-bigquery2/1.0.7+20171202/google_bigquery2/struct.TableGetCall.html), [*insert*](https://docs.rs/google-bigquery2/1.0.7+20171202/google_bigquery2/struct.TableInsertCall.html), [*list*](https://docs.rs/google-bigquery2/1.0.7+20171202/google_bigquery2/struct.TableListCall.html), [*patch*](https://docs.rs/google-bigquery2/1.0.7+20171202/google_bigquery2/struct.TablePatchCall.html) and [*update*](https://docs.rs/google-bigquery2/1.0.7+20171202/google_bigquery2/struct.TableUpdateCall.html)
 
 
-Upload supported by ...
-
-* [*insert jobs*](https://docs.rs/google-bigquery2/1.0.7+20171202/google_bigquery2/struct.JobInsertCall.html)
-
 
 
 # Structure of this Library

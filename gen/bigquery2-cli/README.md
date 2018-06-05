@@ -40,7 +40,7 @@ bigquery2 [options]
                 cancel <project-id> <job-id> [-p <v>]... [-o <out>]
                 get <project-id> <job-id> [-p <v>]... [-o <out>]
                 get-query-results <project-id> <job-id> [-p <v>]... [-o <out>]
-                insert <project-id> (-r <kv>)... (-u (simple|resumable) -f <file> [-m <mime>]) [-p <v>]... [-o <out>]
+                insert <project-id> (-r <kv>)... [-p <v>]... [-o <out>]
                 list <project-id> [-p <v>]... [-o <out>]
                 query <project-id> (-r <kv>)... [-p <v>]... [-o <out>]
         projects

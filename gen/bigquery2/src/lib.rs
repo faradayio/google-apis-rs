@@ -23,10 +23,6 @@
 //!  * [*delete*](struct.TableDeleteCall.html), [*get*](struct.TableGetCall.html), [*insert*](struct.TableInsertCall.html), [*list*](struct.TableListCall.html), [*patch*](struct.TablePatchCall.html) and [*update*](struct.TableUpdateCall.html)
 //! 
 //! 
-//! Upload supported by ...
-//! 
-//! * [*insert jobs*](struct.JobInsertCall.html)
-//! 
 //! 
 //! 
 //! Not what you are looking for ? Find all other Google APIs in their Rust [documentation index](http://byron.github.io/google-apis-rs).
@@ -6926,7 +6922,6 @@ impl<'a, C, A> JobQueryCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oaut
 /// # extern crate yup_oauth2 as oauth2;
 /// # extern crate google_bigquery2 as bigquery2;
 /// use bigquery2::Job;
-/// use std::fs;
 /// # #[test] fn egal() {
 /// # use std::default::Default;
 /// # use oauth2::{Authenticator, DefaultAuthenticatorDelegate, ApplicationSecret, MemoryStorage};
@@ -6943,10 +6938,10 @@ impl<'a, C, A> JobQueryCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oaut
 /// let mut req = Job::default();
 /// 
 /// // You can configure optional parameters by calling the respective setters at will, and
-/// // execute the final call using `upload(...)`.
+/// // execute the final call using `doit()`.
 /// // Values shown here are possibly random and not representative !
 /// let result = hub.jobs().insert(req, "projectId")
-///              .upload(fs::File::open("file.ext").unwrap(), "application/octet-stream".parse().unwrap());
+///              .doit();
 /// # }
 /// ```
 pub struct JobInsertCall<'a, C, A>
@@ -6966,8 +6961,7 @@ impl<'a, C, A> JobInsertCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oau
 
 
     /// Perform the operation you have build so far.
-    fn doit<RS>(mut self, mut reader: RS, reader_mime_type: mime::Mime, protocol: &'static str) -> Result<(hyper::client::Response, Job)>
-		where RS: ReadSeek {
+    pub fn doit(mut self) -> Result<(hyper::client::Response, Job)> {
         use std::io::{Read, Seek};
         use hyper::header::{ContentType, ContentLength, Authorization, Bearer, UserAgent, Location};
         let mut dd = DefaultDelegate;
@@ -6991,15 +6985,7 @@ impl<'a, C, A> JobInsertCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oau
 
         params.push(("alt", "json".to_string()));
 
-        let (mut url, upload_type) =
-            if protocol == "simple" {
-                (self.hub._root_url.clone() + "upload/bigquery/v2/projects/{projectId}/jobs", "multipart")
-            } else if protocol == "resumable" {
-                (self.hub._root_url.clone() + "resumable/upload/bigquery/v2/projects/{projectId}/jobs", "resumable")
-            } else {
-                unreachable!()
-            };
-        params.push(("uploadType", upload_type.to_string()));
+        let mut url = self.hub._base_url.clone() + "projects/{projectId}/jobs";
         if self._scopes.len() == 0 {
             self._scopes.insert(Scope::Full.as_ref().to_string(), ());
         }
@@ -7043,9 +7029,6 @@ impl<'a, C, A> JobInsertCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oau
         let request_size = request_value_reader.seek(io::SeekFrom::End(0)).unwrap();
         request_value_reader.seek(io::SeekFrom::Start(0)).unwrap();
 
-        let mut should_ask_dlg_for_url = false;
-        let mut upload_url_from_server;
-        let mut upload_url: Option<String> = None;
 
         loop {
             let token = match self.hub.auth.borrow_mut().token(self._scopes.keys()) {
@@ -7063,44 +7046,16 @@ impl<'a, C, A> JobInsertCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oau
             let auth_header = Authorization(Bearer { token: token.access_token });
             request_value_reader.seek(io::SeekFrom::Start(0)).unwrap();
             let mut req_result = {
-                if should_ask_dlg_for_url && (upload_url = dlg.upload_url()) == () && upload_url.is_some() {
-                    should_ask_dlg_for_url = false;
-                    upload_url_from_server = false;
-                    let url = upload_url.as_ref().and_then(|s| Some(hyper::Url::parse(s).unwrap())).unwrap();
-                    hyper::client::Response::new(url, Box::new(cmn::DummyNetworkStream)).and_then(|mut res| {
-                        res.status = hyper::status::StatusCode::Ok;
-                        res.headers.set(Location(upload_url.as_ref().unwrap().clone()));
-                        Ok(res)
-                    })
-                } else {
-                    let mut mp_reader: MultiPartReader = Default::default();
-                    let (mut body_reader, content_type) = match protocol {
-                        "simple" => {
-                            mp_reader.reserve_exact(2);
-                            let size = reader.seek(io::SeekFrom::End(0)).unwrap();
-                        reader.seek(io::SeekFrom::Start(0)).unwrap();
-                        
-                            mp_reader.add_part(&mut request_value_reader, request_size, json_mime_type.clone())
-                                     .add_part(&mut reader, size, reader_mime_type.clone());
-                            let mime_type = mp_reader.mime_type();
-                            (&mut mp_reader as &mut io::Read, ContentType(mime_type))
-                        },
-                        _ => (&mut request_value_reader as &mut io::Read, ContentType(json_mime_type.clone())),
-                    };
-                    let mut client = &mut *self.hub.client.borrow_mut();
-                    let mut req = client.borrow_mut().request(hyper::method::Method::Post, &url)
-                        .header(UserAgent(self.hub._user_agent.clone()))
-                        .header(auth_header.clone())
-                        .header(content_type)
-                        .body(&mut body_reader);
-                    upload_url_from_server = true;
-                    if protocol == "resumable" {
-                        req = req.header(cmn::XUploadContentType(reader_mime_type.clone()));
-                    }
-    
-                    dlg.pre_request();
-                    req.send()
-                }
+                let mut client = &mut *self.hub.client.borrow_mut();
+                let mut req = client.borrow_mut().request(hyper::method::Method::Post, &url)
+                    .header(UserAgent(self.hub._user_agent.clone()))
+                    .header(auth_header.clone())
+                    .header(ContentType(json_mime_type.clone()))
+                    .header(ContentLength(request_size as u64))
+                    .body(&mut request_value_reader);
+
+                dlg.pre_request();
+                req.send()
             };
 
             match req_result {
@@ -7128,49 +7083,6 @@ impl<'a, C, A> JobInsertCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oau
                             Ok(serr) => Err(Error::BadRequest(serr))
                         }
                     }
-                    if protocol == "resumable" {
-                        let size = reader.seek(io::SeekFrom::End(0)).unwrap();
-                        reader.seek(io::SeekFrom::Start(0)).unwrap();
-                        
-                        let mut client = &mut *self.hub.client.borrow_mut();
-                        let upload_result = {
-                            let url_str = &res.headers.get::<Location>().expect("Location header is part of protocol").0;
-                            if upload_url_from_server {
-                                dlg.store_upload_url(Some(url_str));
-                            }
-
-                            cmn::ResumableUploadHelper {
-                                client: &mut client.borrow_mut(),
-                                delegate: dlg,
-                                start_at: if upload_url_from_server { Some(0) } else { None },
-                                auth: &mut *self.hub.auth.borrow_mut(),
-                                user_agent: &self.hub._user_agent,
-                                auth_header: auth_header.clone(),
-                                url: url_str,
-                                reader: &mut reader,
-                                media_type: reader_mime_type.clone(),
-                                content_length: size
-                            }.upload()
-                        };
-                        match upload_result {
-                            None => {
-                                dlg.finished(false);
-                                return Err(Error::Cancelled)
-                            }
-                            Some(Err(err)) => {
-                                dlg.finished(false);
-                                return Err(Error::HttpError(err))
-                            }
-                            Some(Ok(upload_result)) => {
-                                res = upload_result;
-                                if !res.status.is_success() {
-                                    dlg.store_upload_url(None);
-                                    dlg.finished(false);
-                                    return Err(Error::Failure(res))
-                                }
-                            }
-                        }
-                    }
                     let result_value = {
                         let mut json_response = String::new();
                         res.read_to_string(&mut json_response).unwrap();
@@ -7190,32 +7102,6 @@ impl<'a, C, A> JobInsertCall<'a, C, A> where C: BorrowMut<hyper::Client>, A: oau
         }
     }
 
-    /// Upload media all at once.
-    /// If the upload fails for whichever reason, all progress is lost.
-    ///
-    /// * *max size*: 0kb
-    /// * *multipart*: yes
-    /// * *valid mime types*: '*/*'
-    pub fn upload<RS>(self, stream: RS, mime_type: mime::Mime) -> Result<(hyper::client::Response, Job)>
-                where RS: ReadSeek {
-        self.doit(stream, mime_type, "simple")
-    }
-    /// Upload media in a resumable fashion.
-    /// Even if the upload fails or is interrupted, it can be resumed for a
-    /// certain amount of time as the server maintains state temporarily.
-    /// 
-    /// The delegate will be asked for an `upload_url()`, and if not provided, will be asked to store an upload URL
-    /// that was provided by the server, using `store_upload_url(...)`. The upload will be done in chunks, the delegate
-    /// may specify the `chunk_size()` and may cancel the operation before each chunk is uploaded, using
-    /// `cancel_chunk_upload(...)`.
-    ///
-    /// * *max size*: 0kb
-    /// * *multipart*: yes
-    /// * *valid mime types*: '*/*'
-    pub fn upload_resumable<RS>(self, resumeable_stream: RS, mime_type: mime::Mime) -> Result<(hyper::client::Response, Job)>
-                where RS: ReadSeek {
-        self.doit(resumeable_stream, mime_type, "resumable")
-    }
 
     ///
     /// Sets the *request* property to the given value.

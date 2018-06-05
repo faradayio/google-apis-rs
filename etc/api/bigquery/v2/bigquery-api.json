@@ -2446,23 +2446,7 @@
       "https://www.googleapis.com/auth/devstorage.full_control",
       "https://www.googleapis.com/auth/devstorage.read_only",
       "https://www.googleapis.com/auth/devstorage.read_write"
-     ],
-     "supportsMediaUpload": true,
-     "mediaUpload": {
-      "accept": [
-       "*/*"
-      ],
-      "protocols": {
-       "simple": {
-        "multipart": true,
-        "path": "/upload/bigquery/v2/projects/{projectId}/jobs"
-       },
-       "resumable": {
-        "multipart": true,
-        "path": "/resumable/upload/bigquery/v2/projects/{projectId}/jobs"
-       }
-      }
-     }
+     ]
     },
     "list": {
      "id": "bigquery.jobs.list",
